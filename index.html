@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>House Music Scheduler</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2a1f1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="House Music">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #2a1f1f; --card: #3d2d2d; --field: #4a3636; --accent: #b6c0d1; --accent2: #8a93a3;
+    --text: #f5f0ea; --muted: #a89d9d; --danger: #7a3b3b; --log: #1a1212;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; }
+  body { padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  main { max-width: 560px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  header img { width: 44px; height: 44px; border-radius: 10px; }
+  h1 { font-size: 22px; margin: 0; line-height: 1.1; }
+  .by { font-size: 12px; color: var(--accent2); margin-top: 2px; }
+  .card { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .label { display: inline-block; background: var(--bg); color: var(--accent); font-weight: 700;
+    font-size: 12px; letter-spacing: .06em; padding: 3px 8px; border-radius: 4px; margin-bottom: 8px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; min-width: 0; }
+  label.f { display: block; font-size: 13px; color: var(--muted); margin: 6px 0 3px; }
+  input[type=text], input[type=time], input[type=number], select {
+    width: 100%; font-size: 17px; color: var(--text); background: var(--field);
+    border: 1px solid #6b5656; border-radius: 8px; padding: 11px 10px; min-height: 44px; }
+  input::placeholder { color: #8a7a7a; }
+  button { font: inherit; font-size: 16px; font-weight: 600; min-height: 46px; padding: 10px 14px;
+    border-radius: 10px; border: 0; color: var(--text); background: var(--field); cursor: pointer; }
+  button:active { filter: brightness(1.2); }
+  button.accent { background: var(--accent); color: #2a1f1f; }
+  button.danger { background: var(--danger); }
+  button.small { min-height: 38px; font-size: 14px; padding: 6px 12px; }
+  button:disabled { opacity: .4; }
+  .seg { display: flex; background: var(--bg); border-radius: 10px; padding: 3px; }
+  .seg button { flex: 1; background: transparent; min-height: 40px; }
+  .seg button.on { background: var(--accent); color: #2a1f1f; }
+  .stat { font-size: 13px; color: var(--muted); margin-top: 6px; word-break: break-word; }
+  .stat b { color: var(--text); font-weight: 600; }
+  .countdown { color: var(--accent); font-weight: 700; font-size: 18px; margin-top: 12px; }
+  .times { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .btns.two { grid-template-columns: 2fr 1fr; }
+  .stopall { width: 100%; margin-top: 8px; min-height: 56px; font-size: 18px; letter-spacing: .04em; }
+  #log { background: var(--log); color: var(--accent); border-radius: 10px; padding: 10px;
+    font: 13px/1.45 ui-monospace, Menlo, monospace; height: 280px; overflow-y: auto; white-space: pre-wrap; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  details > summary { cursor: pointer; font-weight: 600; color: var(--accent); min-height: 32px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon-192.png" alt="">
+    <div>
+      <h1>House Music Scheduler</h1>
+      <div class="by">by Nils John</div>
+    </div>
+  </header>
+
+  <!-- SOURCE -->
+  <div class="card">
+    <span class="label">SOURCE</span>
+    <div class="seg">
+      <button id="modeSpotify" type="button">Spotify</button>
+      <button id="modeLocal" type="button">Local audio file</button>
+    </div>
+
+    <div id="spotifyBox" hidden>
+      <details id="spSettings" style="margin-top:10px">
+        <summary>Spotify connection</summary>
+        <label class="f" for="clientId">Spotify Client ID</label>
+        <input id="clientId" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="paste your Client ID once">
+        <div class="stat">Redirect URI to add in your Spotify app:<br><b id="redirectShow"></b></div>
+        <div class="row" style="margin-top:8px">
+          <button id="spConnect" class="accent small" type="button">Connect Spotify</button>
+          <button id="spCopyRedirect" class="small" type="button">Copy Redirect URI</button>
+          <span id="spState" class="stat" style="margin:0"></span>
+        </div>
+      </details>
+      <label class="f" for="device">Playback device (open the Spotify app on this iPad once so it shows up)</label>
+      <div class="row">
+        <select id="device" class="grow"></select>
+        <button id="devRefresh" class="small" type="button">Refresh</button>
+      </div>
+      <label class="f" for="playlist">Playlist (URL or spotify: URI)</label>
+      <input id="playlist" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://open.spotify.com/playlist/...">
+      <div class="row" style="margin-top:8px">
+        <span id="fbStatus" class="stat grow" style="margin:0"></span>
+        <button id="fbChoose" class="small" type="button">Choose</button>
+        <button id="fbClear" class="small" type="button">Clear</button>
+      </div>
+    </div>
+
+    <div id="localBox" hidden>
+      <div class="row" style="margin-top:10px">
+        <span id="localStatus" class="stat grow" style="margin:0"></span>
+        <button id="localChoose" class="small" type="button">Choose file</button>
+      </div>
+      <div class="stat">Works fully offline. The file is stored in this app and loops until the stop time.</div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="card">
+    <span class="label">SCHEDULE</span>
+    <div class="times">
+      <div><label class="f" for="start">Start</label><input id="start" type="time"></div>
+      <div><label class="f" for="stop">Stop</label><input id="stop" type="time"></div>
+      <div><label class="f" for="fade">Fade-out (s)</label><input id="fade" type="number" inputmode="numeric" min="0" value="10"></div>
+    </div>
+    <div id="countdown" class="countdown" hidden></div>
+    <div class="btns two">
+      <button id="startBtn" class="accent" type="button">&#9654;&nbsp; Start schedule</button>
+      <button id="cancelBtn" type="button" disabled>Cancel</button>
+    </div>
+    <div class="btns">
+      <button id="playBtn" type="button">Play now</button>
+      <button id="pauseBtn" type="button">Pause now</button>
+      <button id="testBtn" type="button">Test (15s)</button>
+    </div>
+    <button id="stopAll" class="stopall danger" type="button">STOP ALL</button>
+    <div id="wakeState" class="stat"></div>
+  </div>
+
+  <!-- LOG -->
+  <div class="card">
+    <span class="label">ACTIVITY LOG</span>
+    <div id="log"></div>
+  </div>
+
+  <div class="hint">
+    For reliable timed playback: keep this app open in the foreground, the iPad plugged in, and Auto-Lock set to
+    "Never" (the screen is kept awake automatically while a schedule runs). Install it via Share &rarr;
+    "Add to Home Screen".
+  </div>
+
+  <input id="pickMain" type="file" accept="audio/*" hidden>
+  <input id="pickFb" type="file" accept="audio/*" hidden>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const store = {
+  get: (k, d = "") => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} },
+  del: (k) => { try { localStorage.removeItem(k); } catch (e) {} },
+};
+
+/* ---------- log ---------- */
+function log(msg) {
+  const box = $("log");
+  const t = new Date().toLocaleTimeString("de-DE", { hour12: false });
+  box.textContent += `[${t}] ${msg}\n`;
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ---------- IndexedDB (audio files) ---------- */
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("hms", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("files");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbPut(k, v) {
+  const db = await idb();
+  return new Promise((res, rej) => { const t = db.transaction("files", "readwrite"); t.objectStore("files").put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); });
+}
+async function idbGet(k) {
+  const db = await idb();
+  return new Promise((res, rej) => { const q = db.transaction("files").objectStore("files").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+}
+async function idbDel(k) {
+  const db = await idb();
+  return new Promise((res, rej) => { const t = db.transaction("files", "readwrite"); t.objectStore("files").delete(k); t.oncomplete = res; t.onerror = () => rej(t.error); });
+}
+
+/* ---------- state ---------- */
+let mode = store.get("mode", "spotify");
+let sched = null;        // running schedule
+let tickTimer = null;
+let usingFallback = false;
+let checking = false, lastCheck = 0;
+let testTimer = null;
+const files = { main: null, fb: null }; // {name, url}
+
+/* ---------- audio engine (Web Audio gives us real volume/fades on iOS) ---------- */
+let ctx = null, keepEl = null, mainEl = null, fbEl = null, mainGain = null, fbGain = null;
+
+function silentWavUrl() {
+  const rate = 8000, n = rate; // 1 second
+  const buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, "data"); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}
+
+function ensureAudio() {
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const mk = (loop) => { const a = new Audio(); a.loop = loop; a.preload = "auto"; a.setAttribute("playsinline", ""); return a; };
+  mainEl = mk(true); fbEl = mk(true);
+  keepEl = mk(true); keepEl.src = silentWavUrl();
+  mainGain = ctx.createGain(); fbGain = ctx.createGain();
+  mainGain.gain.value = 0; fbGain.gain.value = 0;
+  ctx.createMediaElementSource(mainEl).connect(mainGain).connect(ctx.destination);
+  ctx.createMediaElementSource(fbEl).connect(fbGain).connect(ctx.destination);
+  if (files.main) mainEl.src = files.main.url;
+  if (files.fb) fbEl.src = files.fb.url;
+}
+
+function setGain(g, value, secs = 0) {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  g.gain.cancelScheduledValues(t);
+  if (secs > 0) { g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(value, t + secs); }
+  else g.gain.setValueAtTime(value, t);
+}
+
+/* Must run inside a tap: unlocks audio and keeps the page alive in the background. */
+async function primeAudio() {
+  ensureAudio();
+  try { await ctx.resume(); } catch (e) {}
+  const tries = [keepEl.play()];
+  if (files.fb) tries.push(fbEl.play());
+  if (mode === "local" && files.main) tries.push(mainEl.play());
+  await Promise.allSettled(tries);
+}
+
+function stopElements() {
+  if (!ctx) return;
+  [mainEl, fbEl, keepEl].forEach((a) => { try { a.pause(); } catch (e) {} });
+  setGain(mainGain, 0); setGain(fbGain, 0);
+}
+
+/* ---------- wake lock ---------- */
+let wakeLock = null;
+async function requestWake() {
+  if (!("wakeLock" in navigator)) { $("wakeState").textContent = "Screen wake lock not supported - set Auto-Lock to Never."; return; }
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    $("wakeState").textContent = "Screen stays awake while the schedule runs.";
+    wakeLock.addEventListener("release", () => { wakeLock = null; });
+  } catch (e) { $("wakeState").textContent = "Could not keep the screen awake - set Auto-Lock to Never."; }
+}
+function releaseWake() { if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } $("wakeState").textContent = ""; }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && sched && !wakeLock) requestWake(); });
+
+/* ---------- Spotify (PKCE, no server needed) ---------- */
+const SCOPE = "user-modify-playback-state user-read-playback-state";
+const redirectUri = () => location.origin + location.pathname;
+const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+async function spLogin() {
+  const cid = $("clientId").value.trim();
+  if (!cid) { log("Enter your Spotify Client ID first."); return; }
+  store.set("clientId", cid);
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
+  store.set("verifier", verifier);
+  const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+  const p = new URLSearchParams({ client_id: cid, response_type: "code", redirect_uri: redirectUri(),
+    scope: SCOPE, code_challenge_method: "S256", code_challenge: challenge });
+  location.href = "https://accounts.spotify.com/authorize?" + p;
+}
+
+async function spTokenRequest(params) {
+  const r = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(params) });
+  if (!r.ok) throw new Error("token " + r.status);
+  const j = await r.json();
+  store.set("accessToken", j.access_token);
+  store.set("expiresAt", String(Date.now() + (j.expires_in - 60) * 1000));
+  if (j.refresh_token) store.set("refreshToken", j.refresh_token);
+}
+
+async function spHandleCallback() {
+  const q = new URLSearchParams(location.search);
+  const code = q.get("code");
+  if (!code && !q.get("error")) return;
+  history.replaceState({}, "", location.pathname);
+  if (q.get("error")) { log("Spotify login was cancelled."); return; }
+  try {
+    await spTokenRequest({ client_id: store.get("clientId"), grant_type: "authorization_code", code,
+      redirect_uri: redirectUri(), code_verifier: store.get("verifier") });
+    log("Spotify connected.");
+  } catch (e) { log("Spotify login failed: " + e.message); }
+}
+
+async function spToken() {
+  if (!store.get("refreshToken")) throw new Error("not connected");
+  if (Date.now() > Number(store.get("expiresAt", "0"))) {
+    await spTokenRequest({ client_id: store.get("clientId"), grant_type: "refresh_token", refresh_token: store.get("refreshToken") });
+  }
+  return store.get("accessToken");
+}
+
+async function sp(method, path, body, retried = false) {
+  const ctl = new AbortController();
+  const to = setTimeout(() => ctl.abort(), 8000); // never hang on dead WiFi
+  try {
+    const token = await spToken();
+    const r = await fetch("https://api.spotify.com/v1" + path, {
+      method, signal: ctl.signal,
+      headers: { Authorization: "Bearer " + token, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 401 && !retried) { store.set("expiresAt", "0"); return sp(method, path, body, true); }
+    if (r.status === 204 || r.status === 202) return null;
+    if (!r.ok) throw new Error(method + " " + path.split("?")[0] + " -> " + r.status);
+    const text = await r.text();
+    return text ? JSON.parse(text) : null;
+  } finally { clearTimeout(to); }
+}
+
+function playlistUri() {
+  const v = $("playlist").value.trim();
+  if (v.startsWith("spotify:playlist:")) return v;
+  const m = v.match(/playlist\/([A-Za-z0-9]+)/);
+  return m ? "spotify:playlist:" + m[1] : "";
+}
+
+async function refreshDevices() {
+  const sel = $("device"), keep = store.get("deviceId");
+  try {
+    const j = await sp("GET", "/me/player/devices");
+    const list = (j && j.devices) || [];
+    sel.innerHTML = "";
+    list.forEach((d) => { const o = document.createElement("option"); o.value = d.id; o.textContent = d.name + (d.is_active ? " (active)" : ""); sel.appendChild(o); });
+    if (!list.length) { const o = document.createElement("option"); o.value = ""; o.textContent = "No devices - open the Spotify app"; sel.appendChild(o); }
+    if (keep && list.some((d) => d.id === keep)) sel.value = keep;
+    store.set("deviceId", sel.value);
+    log(list.length ? `Found ${list.length} Spotify device(s).` : "No Spotify devices found. Open the Spotify app on this iPad, then Refresh.");
+  } catch (e) { log("Could not load devices: " + e.message); }
+}
+
+function updateSpState() {
+  $("spState").textContent = store.get("refreshToken") ? "Connected" : "Not connected";
+}
+
+async function spPlay() {
+  const uri = playlistUri(), dev = $("device").value;
+  if (!uri) throw new Error("no playlist");
+  await sp("PUT", "/me/player/play" + (dev ? "?device_id=" + encodeURIComponent(dev) : ""), { context_uri: uri });
+}
+async function spPause() { try { await sp("PUT", "/me/player/pause"); } catch (e) { /* fine if already paused */ } }
+
+async function spPlaybackOk() {
+  let pb;
+  try { pb = await sp("GET", "/me/player"); } catch (e) { return false; }
+  if (!pb || !pb.is_playing) return false;
+  const uri = playlistUri();
+  if (uri && (!pb.context || pb.context.uri !== uri)) return false;
+  return true;
+}
+
+/* ---------- fallback ---------- */
+async function goFallback(reason) {
+  if (!usingFallback) {
+    usingFallback = true;
+    log(reason);
+    if (files.fb) {
+      log("Switching to offline fallback: " + files.fb.name);
+      ensureAudio();
+      try { await ctx.resume(); } catch (e) {}
+      fbEl.currentTime = 0;
+      fbEl.play().catch(() => {});
+      setGain(fbGain, 1);
+    } else {
+      log("No offline fallback file set - staying silent.");
+    }
+  }
+  if (mode === "spotify") spPause(); // always silence Spotify, whatever the reason
+}
+
+async function watchdog() {
+  if (checking || !sched || sched.phase === "waiting" || mode !== "spotify") return;
+  if (Date.now() - lastCheck < 2000) return;
+  checking = true; lastCheck = Date.now();
+  try {
+    if (!usingFallback) {
+      if (!(await spPlaybackOk())) await goFallback("Spotify playback isn't running as expected anymore.");
+    } else {
+      // already on fallback: if Spotify starts again for any reason, shut it up again
+      let pb = null; try { pb = await sp("GET", "/me/player"); } catch (e) {}
+      if (pb && pb.is_playing) { log("Spotify started again - pausing it."); spPause(); }
+    }
+  } finally { checking = false; }
+}
+
+/* ---------- schedule ---------- */
+const pad = (n) => String(n).padStart(2, "0");
+const fmt = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`; };
+const hm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+function parseTimes() {
+  const s = $("start").value, e = $("stop").value;
+  if (!s || !e) { alert("Please set a start and a stop time."); return null; }
+  const now = new Date();
+  const mk = (str) => { const [h, m] = str.split(":").map(Number); const d = new Date(now); d.setHours(h, m, 0, 0); return d; };
+  let start = mk(s), stop = mk(e);
+  if (stop <= start) stop = new Date(stop.getTime() + 864e5);
+  if (stop <= now) { start = new Date(start.getTime() + 864e5); stop = new Date(stop.getTime() + 864e5); }
+  const fade = Math.max(0, parseInt($("fade").value || "0", 10) || 0);
+  return { start, stop, fade };
+}
+
+async function startSchedule() {
+  if (sched) return;
+  const t = parseTimes(); if (!t) return;
+  if (mode === "local") {
+    if (!files.main) { alert("Choose an audio file first."); return; }
+  } else {
+    if (!store.get("refreshToken")) { alert("Connect Spotify first."); return; }
+    if (!playlistUri()) { alert("Enter a valid playlist URL."); return; }
+    if (!$("device").value) { alert("Pick a playback device (open the Spotify app on this iPad, then Refresh)."); return; }
+    if (!files.fb && confirm("No offline fallback file set. If Spotify or the internet drops, there would be silence.\n\nChoose an offline fallback file now?")) {
+      $("pickFb").click(); return; // user taps Start again after choosing
+    }
+  }
+  await primeAudio();
+  requestWake();
+  usingFallback = false; lastCheck = 0;
+  sched = { ...t, phase: "waiting", vol0: 100, fadeTimer: null };
+  $("startBtn").disabled = true; $("cancelBtn").disabled = false;
+  $("countdown").hidden = false;
+  log(`Schedule set: start ${hm(t.start)}, stop ${hm(t.stop)}, fade ${t.fade}s.`);
+  clearInterval(tickTimer);
+  tickTimer = setInterval(tick, 500);
+  tick();
+}
+
+async function beginPlayback() {
+  sched.phase = "playing";
+  log("Start time reached - starting music.");
+  if (mode === "local") {
+    mainEl.currentTime = 0;
+    mainEl.play().catch(() => {});
+    setGain(mainGain, 1);
+  } else {
+    try { await spPlay(); log("Spotify playing."); }
+    catch (e) { await goFallback("Couldn't start Spotify (" + e.message + ")."); }
+  }
+}
+
+async function beginFade() {
+  sched.phase = "fading";
+  log(`Fading out over ${sched.fade}s.`);
+  const f = sched.fade;
+  if (mode === "local") { setGain(mainGain, 0, f); }
+  if (usingFallback) setGain(fbGain, 0, f);
+  if (mode === "spotify" && !usingFallback && f > 0) {
+    try { const pb = await sp("GET", "/me/player"); sched.vol0 = (pb && pb.device && pb.device.volume_percent) || 100; } catch (e) {}
+    let i = 0;
+    sched.fadeTimer = setInterval(() => {
+      i++;
+      const v = Math.max(0, Math.round(sched.vol0 * (1 - i / f)));
+      sp("PUT", "/me/player/volume?volume_percent=" + v).catch(() => {});
+      if (i >= f) clearInterval(sched.fadeTimer);
+    }, 1000);
+  }
+}
+
+async function finishSchedule(cancelled) {
+  const s = sched; if (!s) return;
+  clearInterval(tickTimer); tickTimer = null;
+  clearInterval(s.fadeTimer);
+  sched = null;
+  if (mode === "spotify") {
+    await spPause();
+    if (!cancelled) sp("PUT", "/me/player/volume?volume_percent=" + (s.vol0 || 100)).catch(() => {});
+  }
+  stopElements();
+  usingFallback = false;
+  releaseWake();
+  resetButtons();
+  log(cancelled ? "Cancelled." : "Done - music stopped.");
+}
+
+function resetButtons() {
+  $("startBtn").disabled = false; $("cancelBtn").disabled = true;
+  $("countdown").hidden = true; $("countdown").textContent = "";
+}
+
+function tick() {
+  if (!sched) return;
+  const now = new Date(), s = sched;
+  const fadeStart = new Date(s.stop.getTime() - s.fade * 1000);
+  if (s.phase === "waiting" && now >= s.start) beginPlayback();
+  else if (s.phase === "playing" && now >= fadeStart) beginFade();
+  if ((s.phase === "playing" || s.phase === "fading") && now >= s.stop) { finishSchedule(false); return; }
+
+  let text;
+  if (now < s.start) text = `Start in ${fmt(s.start - now)}  (at ${hm(s.start)})`;
+  else if (now < fadeStart) text = `Stop in ${fmt(fadeStart - now)}  (at ${hm(s.stop)})`;
+  else if (now < s.stop) text = `Fading out... stop in ${fmt(s.stop - now)}`;
+  else text = "Finishing...";
+  $("countdown").textContent = text;
+  watchdog();
+}
+
+/* ---------- manual controls ---------- */
+async function playNow() {
+  await primeAudio();
+  if (mode === "local") {
+    if (!files.main) { alert("Choose an audio file first."); return; }
+    mainEl.play().catch(() => {}); setGain(mainGain, 1); log("Playing local file.");
+  } else {
+    try { await spPlay(); log("Spotify playing."); }
+    catch (e) { log("Spotify failed: " + e.message); usingFallback = false; await goFallback("Falling back to the offline file."); }
+  }
+}
+
+async function pauseNow() {
+  setGain(mainGain, 0); setGain(fbGain, 0);
+  if (!sched) stopElements();
+  if (mode === "spotify") await spPause();
+  log("Paused.");
+}
+
+async function testSound() {
+  clearTimeout(testTimer);
+  await playNow();
+  log("Test: stopping automatically in 15s.");
+  testTimer = setTimeout(async () => {
+    if (!sched) { await pauseNow(); usingFallback = false; }
+    log("Test finished.");
+  }, 15000);
+}
+
+async function stopEverything() {
+  clearTimeout(testTimer);
+  if (sched) await finishSchedule(true);
+  if (mode === "spotify") await spPause();
+  stopElements();
+  usingFallback = false;
+  log("STOP ALL - everything silenced.");
+}
+
+/* ---------- files ---------- */
+async function loadFile(slot) {
+  const rec = await idbGet(slot).catch(() => null);
+  if (files[slot]) URL.revokeObjectURL(files[slot].url);
+  files[slot] = rec ? { name: rec.name, url: URL.createObjectURL(rec.blob) } : null;
+  if (ctx) { const el = slot === "main" ? mainEl : fbEl; if (files[slot]) el.src = files[slot].url; else el.removeAttribute("src"); }
+  updateFileLabels();
+}
+async function saveFile(slot, file) {
+  if (!file) return;
+  await idbPut(slot, { name: file.name, blob: file });
+  await loadFile(slot);
+  log((slot === "main" ? "Audio file: " : "Fallback file: ") + file.name);
+}
+function updateFileLabels() {
+  $("localStatus").innerHTML = files.main ? `File: <b>${files.main.name}</b>` : "No file chosen";
+  $("fbStatus").innerHTML = files.fb ? `Offline fallback: <b>${files.fb.name}</b>` : "Offline fallback: <b>not set</b>";
+}
+
+/* ---------- mode / UI ---------- */
+function setMode(m) {
+  mode = m; store.set("mode", m);
+  $("modeSpotify").classList.toggle("on", m === "spotify");
+  $("modeLocal").classList.toggle("on", m === "local");
+  $("spotifyBox").hidden = m !== "spotify";
+  $("localBox").hidden = m !== "local";
+}
+
+async function init() {
+  $("redirectShow").textContent = redirectUri();
+  $("clientId").value = store.get("clientId");
+  $("playlist").value = store.get("playlist");
+  $("start").value = store.get("start"); $("stop").value = store.get("stop");
+  $("fade").value = store.get("fade", "10");
+  $("playlist").addEventListener("change", () => store.set("playlist", $("playlist").value.trim()));
+  $("start").addEventListener("change", () => store.set("start", $("start").value));
+  $("stop").addEventListener("change", () => store.set("stop", $("stop").value));
+  $("fade").addEventListener("change", () => store.set("fade", $("fade").value));
+  $("device").addEventListener("change", () => store.set("deviceId", $("device").value));
+  $("clientId").addEventListener("change", () => store.set("clientId", $("clientId").value.trim()));
+
+  $("modeSpotify").onclick = () => setMode("spotify");
+  $("modeLocal").onclick = () => setMode("local");
+  $("spConnect").onclick = spLogin;
+  $("spCopyRedirect").onclick = () => { navigator.clipboard.writeText(redirectUri()).then(() => log("Redirect URI copied."), () => log("Copy failed - long-press the address to copy it.")); };
+  $("devRefresh").onclick = refreshDevices;
+  $("localChoose").onclick = () => $("pickMain").click();
+  $("fbChoose").onclick = () => $("pickFb").click();
+  $("fbClear").onclick = async () => { await idbDel("fb"); await loadFile("fb"); log("Fallback file cleared."); };
+  $("pickMain").onchange = (e) => saveFile("main", e.target.files[0]);
+  $("pickFb").onchange = (e) => saveFile("fb", e.target.files[0]);
+  $("startBtn").onclick = startSchedule;
+  $("cancelBtn").onclick = () => finishSchedule(true);
+  $("playBtn").onclick = playNow;
+  $("pauseBtn").onclick = pauseNow;
+  $("testBtn").onclick = testSound;
+  $("stopAll").onclick = stopEverything;
+
+  setMode(mode);
+  await loadFile("main"); await loadFile("fb");
+  await spHandleCallback();
+  updateSpState();
+  if (!store.get("refreshToken")) $("spSettings").open = true;
+  else refreshDevices();
+
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  log("Ready.");
+}
+init();
+</script>
+</body>
+</html>
